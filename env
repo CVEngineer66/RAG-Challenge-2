@@ -1,0 +1,21 @@
+# Rename this file to .env and put your own keys in it
+# You can ignore api keys for jina and gemini, if you don't plan to use them
+
+LLM_MODEL=qwen-plus
+RERANKER_LLM_MODEL=qwen-max-2025-01-25
+OPENAI_API_KEY=
+OPENAI_API_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+EMBEDDING_MODEL=text-embedding-v4
+
+#LLM_MODEL=o3-mini
+#OPENAI_API_KEY=
+#OPENAI_API_BASE_URL=https://api.bltcy.ai/v1
+#EMBEDDING_MODEL=text-embedding-3-large
+
+#RERANKING_MODEL=gte-rerank-v2
+#QWEN_RERANKING_URL=
+
+GEMINI_API_KEY=AIzaS...
+
+# Jina Reranker v2 from https://jina.ai/reranker/
+JINA_API_KEY=jina_da471fbac8b846c2a9bbdd006883477cD3_DHfqAUgq-QnPXbyW88cGoYbKQ
