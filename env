@@ -18,4 +18,4 @@ EMBEDDING_MODEL=text-embedding-v4
 GEMINI_API_KEY=AIzaS...
 
 # Jina Reranker v2 from https://jina.ai/reranker/
-JINA_API_KEY=jina_da471fbac8b846c2a9bbdd006883477cD3_DHfqAUgq-QnPXbyW88cGoYbKQ
+JINA_API_KEY=
