@@ -73,9 +73,9 @@ class PDFParser:
         from docling.datamodel.base_models import InputFormat
         from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
         
-        pipeline_options = PdfPipelineOptions()
+        pipeline_options = PdfPipelineOptions(artifacts_path="/GraduateStudents/wufengfan/RAG-Challenge-2/docling_model")
         pipeline_options.do_ocr = True
-        ocr_options = EasyOcrOptions(lang=['en'], force_full_page_ocr=False)
+        ocr_options = EasyOcrOptions(lang=['en'], force_full_page_ocr=False, model_storage_directory="/GraduateStudents/wufengfan/.EasyOCR/model", download_enabled=False)
         pipeline_options.ocr_options = ocr_options
         pipeline_options.do_table_structure = True
         pipeline_options.table_structure_options.do_cell_matching = True
@@ -157,7 +157,6 @@ class PDFParser:
         start_time = time.time()
         if input_doc_paths is None and doc_dir is not None:
             input_doc_paths = list(doc_dir.glob("*.pdf"))
-        
         total_docs = len(input_doc_paths)
         _log.info(f"Starting to process {total_docs} documents")
         

@@ -40,14 +40,14 @@ class LLMReranker:
       
     def set_up_llm(self):
         load_dotenv()
-        llm = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        llm = OpenAI(api_key=os.getenv("OPENAI_API_KEY"),base_url=os.getenv("OPENAI_API_BASE_URL"))
         return llm
-    
+
     def get_rank_for_single_block(self, query, retrieved_document):
         user_prompt = f'/nHere is the query:/n"{query}"/n/nHere is the retrieved text block:/n"""/n{retrieved_document}/n"""/n'
-        
+
         completion = self.llm.beta.chat.completions.parse(
-            model="gpt-4o-mini-2024-07-18",
+            model=os.getenv("RERANKER_LLM_MODEL"),
             temperature=0,
             messages=[
                 {"role": "system", "content": self.system_prompt_rerank_single_block},
@@ -58,7 +58,7 @@ class LLMReranker:
 
         response = completion.choices[0].message.parsed
         response_dict = response.model_dump()
-        
+
         return response_dict
 
     def get_rank_for_multiple_blocks(self, query, retrieved_documents):
@@ -71,7 +71,7 @@ class LLMReranker:
         )
 
         completion = self.llm.beta.chat.completions.parse(
-            model="gpt-4o-mini-2024-07-18",
+            model=os.getenv("RERANKER_LLM_MODEL"),
             temperature=0,
             messages=[
                 {"role": "system", "content": self.system_prompt_rerank_multiple_blocks},
@@ -82,7 +82,7 @@ class LLMReranker:
 
         response = completion.choices[0].message.parsed
         response_dict = response.model_dump()
-      
+
         return response_dict
 
     def rerank_documents(self, query: str, documents: list, documents_batch_size: int = 4, llm_weight: float = 0.7):

@@ -23,15 +23,15 @@ class QuestionsProcessor:
         llm_reranking_sample_size: int = 20,
         top_n_retrieval: int = 10,
         parallel_requests: int = 10,
-        api_provider: str = "openai",
-        answering_model: str = "gpt-4o-2024-08-06",
+        api_provider: str = "qwen",
+        answering_model: str = "qwen-plus",
         full_context: bool = False
     ):
         self.questions = self._load_questions(questions_file_path)
         self.documents_dir = Path(documents_dir)
         self.vector_db_dir = Path(vector_db_dir)
         self.subset_path = Path(subset_path) if subset_path else None
-        
+
         self.new_challenge_pipeline = new_challenge_pipeline
         self.return_parent_pages = parent_document_retrieval
         self.llm_reranking = llm_reranking
@@ -57,13 +57,13 @@ class QuestionsProcessor:
         """Format vector retrieval results into RAG context string"""
         if not retrieval_results:
             return ""
-        
+
         context_parts = []
         for result in retrieval_results:
             page_number = result['page']
             text = result['text']
             context_parts.append(f'Text retrieved from page {page_number}: \n"""\n{text}\n"""')
-            
+
         return "\n\n---\n\n".join(context_parts)
 
     def _extract_references(self, pages_list: list, company_name: str) -> list:
@@ -91,31 +91,31 @@ class QuestionsProcessor:
         """
         if claimed_pages is None:
             claimed_pages = []
-        
+
         retrieved_pages = [result['page'] for result in retrieval_results]
-        
+
         validated_pages = [page for page in claimed_pages if page in retrieved_pages]
-        
+
         if len(validated_pages) < len(claimed_pages):
             removed_pages = set(claimed_pages) - set(validated_pages)
             print(f"Warning: Removed {len(removed_pages)} hallucinated page references: {removed_pages}")
-        
+
         if len(validated_pages) < min_pages and retrieval_results:
             existing_pages = set(validated_pages)
-            
+
             for result in retrieval_results:
                 page = result['page']
                 if page not in existing_pages:
                     validated_pages.append(page)
                     existing_pages.add(page)
-                    
+
                     if len(validated_pages) >= min_pages:
                         break
-        
+
         if len(validated_pages) > max_pages:
             print(f"Trimming references from {len(validated_pages)} to {max_pages} pages")
             validated_pages = validated_pages[:max_pages]
-        
+
         return validated_pages
 
     def get_answer_for_company(self, company_name: str, question: str, schema: str) -> dict:
@@ -133,7 +133,7 @@ class QuestionsProcessor:
 
         if self.full_context:
             retrieval_results = retriever.retrieve_all(company_name)
-        else:           
+        else:
             retrieval_results = retriever.retrieve_by_company_name(
                 company_name=company_name,
                 query=question,
@@ -141,10 +141,10 @@ class QuestionsProcessor:
                 top_n=self.top_n_retrieval,
                 return_parent_pages=self.return_parent_pages
             )
-        
+
         if not retrieval_results:
             raise ValueError("No relevant context found")
-        
+
         rag_context = self._format_retrieval_results(retrieval_results)
         answer_dict = self.openai_processor.get_answer_from_rag_context(
             question=question,
@@ -166,19 +166,19 @@ class QuestionsProcessor:
             if self.subset_path is None:
                 raise ValueError("subset_path must be provided to use subset extraction")
             self.companies_df = pd.read_csv(self.subset_path)
-        
+
         found_companies = []
         company_names = sorted(self.companies_df['company_name'].unique(), key=len, reverse=True)
-        
+
         for company in company_names:
             escaped_company = re.escape(company)
-            
+
             pattern = rf'{escaped_company}(?:\W|$)'
-            
+
             if re.search(pattern, question_text, re.IGNORECASE):
                 found_companies.append(company)
                 question_text = re.sub(pattern, '', question_text, flags=re.IGNORECASE)
-        
+
         return found_companies
 
     def process_question(self, question: str, schema: str):
@@ -186,17 +186,17 @@ class QuestionsProcessor:
             extracted_companies = self._extract_companies_from_subset(question)
         else:
             extracted_companies = re.findall(r'"([^"]*)"', question)
-        
+
         if len(extracted_companies) == 0:
             raise ValueError("No company name found in the question.")
-        
+
         if len(extracted_companies) == 1:
             company_name = extracted_companies[0]
             answer_dict = self.get_answer_for_company(company_name=company_name, question=question, schema=schema)
             return answer_dict
         else:
             return self.process_comparative_question(question, extracted_companies, schema)
-    
+
     def _create_answer_detail_ref(self, answer_dict: dict, question_index: int) -> str:
         """Create a reference ID for answer details and store the details"""
         ref_id = f"#/answer_details/{question_index}"
@@ -222,7 +222,7 @@ class QuestionsProcessor:
             print(f"Errors: {error_count} ({(error_count/total_questions)*100:.1f}%)")
             print(f"N/A answers: {na_count} ({(na_count/total_questions)*100:.1f}%)")
             print(f"Successfully answered: {success_count} ({(success_count/total_questions)*100:.1f}%)\n")
-        
+
         return {
             "total_questions": total_questions,
             "error_count": error_count,
@@ -252,13 +252,13 @@ class QuestionsProcessor:
                         # executor.map will return results in the same order as the input list.
                         batch_results = list(executor.map(self._process_single_question, batch))
                     processed_questions.extend(batch_results)
-                    
+
                     if output_path:
                         self._save_progress(processed_questions, output_path, submission_file=submission_file, team_email=team_email, submission_name=submission_name, pipeline_details=pipeline_details)
                     pbar.update(len(batch_results))
-        
+
         statistics = self._calculate_statistics(processed_questions, print_stats = True)
-        
+
         return {
             "questions": processed_questions,
             "answer_details": self.answer_details,
@@ -267,7 +267,7 @@ class QuestionsProcessor:
 
     def _process_single_question(self, question_data: dict) -> dict:
         question_index = question_data.get("_question_index", 0)
-        
+
         if self.new_challenge_pipeline:
             question_text = question_data.get("text")
             schema = question_data.get("kind")
@@ -276,7 +276,7 @@ class QuestionsProcessor:
             schema = question_data.get("schema")
         try:
             answer_dict = self.process_question(question_text, schema)
-            
+
             if "error" in answer_dict:
                 detail_ref = self._create_answer_detail_ref({
                     "step_by_step_analysis": None,
@@ -332,15 +332,15 @@ class QuestionsProcessor:
             "error_traceback": tb,
             "self": error_ref
         }
-        
+
         with self._lock:
             self.answer_details[question_index] = error_detail
-        
+
         print(f"Error encountered processing question: {question_text}")
         print(f"Error type: {type(err).__name__}")
         print(f"Error message: {error_message}")
         print(f"Full traceback:\n{tb}\n")
-        
+
         if self.new_challenge_pipeline:
             return {
                 "question_text": question_text,
@@ -368,13 +368,13 @@ class QuestionsProcessor:
         4. Include step_by_step_analysis from answer details
         """
         submission_answers = []
-        
+
         for q in processed_questions:
             question_text = q.get("question_text") or q.get("question")
             kind = q.get("kind") or q.get("schema")
             value = "N/A" if "error" in q else (q.get("value") if "value" in q else q.get("answer"))
             references = q.get("references", [])
-            
+
             answer_details_ref = q.get("answer_details", {}).get("$ref", "")
             step_by_step_analysis = None
             if answer_details_ref and answer_details_ref.startswith("#/answer_details/"):
@@ -384,7 +384,7 @@ class QuestionsProcessor:
                         step_by_step_analysis = self.answer_details[index].get("step_by_step_analysis")
                 except (ValueError, IndexError):
                     pass
-            
+
             # Clear references if value is N/A
             if value == "N/A":
                 references = []
@@ -397,25 +397,25 @@ class QuestionsProcessor:
                     }
                     for ref in references
                 ]
-            
+
             submission_answer = {
                 "question_text": question_text,
                 "kind": kind,
                 "value": value,
                 "references": references,
             }
-            
+
             if step_by_step_analysis:
                 submission_answer["reasoning_process"] = step_by_step_analysis
-            
+
             submission_answers.append(submission_answer)
-        
+
         return submission_answers
 
     def _save_progress(self, processed_questions: List[dict], output_path: Optional[str], submission_file: bool = False, team_email: str = "", submission_name: str = "", pipeline_details: str = ""):
         if output_path:
             statistics = self._calculate_statistics(processed_questions)
-            
+
             # Prepare debug content
             result = {
                 "questions": processed_questions,
@@ -426,7 +426,7 @@ class QuestionsProcessor:
             debug_file = output_file.with_name(output_file.stem + "_debug" + output_file.suffix)
             with open(debug_file, 'w', encoding='utf-8') as file:
                 json.dump(result, file, ensure_ascii=False, indent=2)
-            
+
             if submission_file:
                 # Post-process answers for submission
                 submission_answers = self._post_process_submission_answers(processed_questions)
@@ -462,49 +462,49 @@ class QuestionsProcessor:
             original_question=question,
             companies=companies
         )
-        
+
         individual_answers = {}
         aggregated_references = []
-        
+
         # Step 2: Process each individual question in parallel
         def process_company_question(company: str) -> tuple[str, dict]:
             """Helper function to process one company's question and return (company, answer)"""
             sub_question = rephrased_questions.get(company)
             if not sub_question:
                 raise ValueError(f"Could not generate sub-question for company: {company}")
-            
+
             answer_dict = self.get_answer_for_company(
-                company_name=company, 
-                question=sub_question, 
+                company_name=company,
+                question=sub_question,
                 schema="number"
             )
             return company, answer_dict
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_to_company = {
-                executor.submit(process_company_question, company): company 
+                executor.submit(process_company_question, company): company
                 for company in companies
             }
-            
+
             for future in concurrent.futures.as_completed(future_to_company):
                 try:
                     company, answer_dict = future.result()
                     individual_answers[company] = answer_dict
-                    
+
                     company_references = answer_dict.get("references", [])
                     aggregated_references.extend(company_references)
                 except Exception as e:
                     company = future_to_company[future]
                     print(f"Error processing company {company}: {str(e)}")
                     raise
-        
+
         # Remove duplicate references
         unique_refs = {}
         for ref in aggregated_references:
             key = (ref.get("pdf_sha1"), ref.get("page_index"))
             unique_refs[key] = ref
         aggregated_references = list(unique_refs.values())
-        
+
         # Step 3: Get the comparative answer using all individual answers
         comparative_answer = self.openai_processor.get_answer_from_rag_context(
             question=question,
@@ -513,7 +513,6 @@ class QuestionsProcessor:
             model=self.answering_model
         )
         self.response_data = self.openai_processor.response_data
-        
+
         comparative_answer["references"] = aggregated_references
         return comparative_answer
-    

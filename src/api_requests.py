@@ -20,15 +20,16 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 class BaseOpenaiProcessor:
     def __init__(self):
         self.llm = self.set_up_llm()
-        self.default_model = 'gpt-4o-2024-08-06'
+        self.default_model = os.getenv("LLM_MODEL")
         # self.default_model = 'gpt-4o-mini-2024-07-18',
 
     def set_up_llm(self):
         load_dotenv()
         llm = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_API_BASE_URL"),
             timeout=None,
-            max_retries=2
+            max_retries=2,
             )
         return llm
 
@@ -368,9 +369,9 @@ class BaseGeminiProcessor:
 
 
 class APIProcessor:
-    def __init__(self, provider: Literal["openai", "ibm", "gemini"] ="openai"):
+    def __init__(self, provider: Literal["openai", "ibm", "gemini", "qwen"] ="openai"):
         self.provider = provider.lower()
-        if self.provider == "openai":
+        if self.provider == "openai" or "qwen":
             self.processor = BaseOpenaiProcessor()
         elif self.provider == "ibm":
             self.processor = BaseIBMAPIProcessor()
@@ -485,7 +486,7 @@ class AsyncOpenaiProcessor:
 
     async def process_structured_ouputs_requests(
         self,
-        model="gpt-4o-mini-2024-07-18",
+        model=os.getenv("LLM_MODEL"),
         temperature=0.5,
         seed=None,
         system_content="You are a helpful assistant.",
@@ -495,7 +496,7 @@ class AsyncOpenaiProcessor:
         save_filepath='./temp_async_llm_results.jsonl',
         preserve_requests=False,
         preserve_results=True,
-        request_url="https://api.openai.com/v1/chat/completions",
+        request_url=os.getenv("OPENAI_API_BASE_URL"),
         max_requests_per_minute=3_500,
         max_tokens_per_minute=3_500_000,
         token_encoding_name="o200k_base",

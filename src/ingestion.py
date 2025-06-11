@@ -57,27 +57,35 @@ class VectorDBIngestor:
         load_dotenv()
         llm = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_API_BASE_URL"),
             timeout=None,
             max_retries=2
         )
         return llm
 
     @retry(wait=wait_fixed(20), stop=stop_after_attempt(2))
-    def _get_embeddings(self, text: Union[str, List[str]], model: str = "text-embedding-3-large") -> List[float]:
-        if isinstance(text, str) and not text.strip():
-            raise ValueError("Input text cannot be an empty string.")
-        
-        if isinstance(text, list):
-            text_chunks = [text[i:i + 1024] for i in range(0, len(text), 1024)]
-        else:
-            text_chunks = [text]
-
+    def _get_embeddings(self, texts: List[str], model: str = "text-embedding-v4") -> List[float]:
         embeddings = []
-        for chunk in text_chunks:
-            response = self.llm.embeddings.create(input=chunk, model=model)
+        batch_size = 10  # 每批最多10个输入
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            response = self.llm.embeddings.create(input=batch, model=model)
             embeddings.extend([embedding.embedding for embedding in response.data])
-        
         return embeddings
+
+    # def _get_embeddings(self, text: Union[str, List[str]], model: str = "text-embedding-v4") -> List[float]:  # text-embedding-3-large
+    #     if isinstance(text, str) and not text.strip():
+    #         raise ValueError("Input text cannot be an empty string.")
+    #     if isinstance(text, list):
+    #         text_chunks = [text[i:i + 1024] for i in range(0, len(text), 1024)]
+    #     else:
+    #         text_chunks = [text]
+    #
+    #     embeddings = []
+    #     for chunk in text_chunks:
+    #         response = self.llm.embeddings.create(input=chunk, model=model)
+    #         embeddings.extend([embedding.embedding for embedding in response.data])
+    #     return embeddings
 
     def _create_vector_db(self, embeddings: List[float]):
         embeddings_array = np.array(embeddings, dtype=np.float32)
@@ -88,7 +96,7 @@ class VectorDBIngestor:
     
     def _process_report(self, report: dict):
         text_chunks = [chunk['text'] for chunk in report['content']['chunks']]
-        embeddings = self._get_embeddings(text_chunks)
+        embeddings = self._get_embeddings(text_chunks, model=os.getenv("EMBEDDING_MODEL"))
         index = self._create_vector_db(embeddings)
         return index
 

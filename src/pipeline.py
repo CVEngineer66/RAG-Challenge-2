@@ -290,6 +290,18 @@ base_config = RunConfig(
     config_suffix="_base"
 )
 
+qwen_config = RunConfig(
+    use_serialized_tables=False,
+    parent_document_retrieval=False,
+    llm_reranking=False,
+    parallel_requests=10,
+    submission_name="CVEngine v.0",
+    pipeline_details="Custom pdf parsing + vDB + Router + SO CoT; llm = qwen-plus",
+    api_provider="qwen",
+    answering_model=os.getenv("LLM_MODEL"),
+    config_suffix="_base",
+)
+
 parent_document_retrieval_config = RunConfig(
     parent_document_retrieval=True,
     parallel_requests=20,
@@ -433,13 +445,14 @@ gemini_thinking_config_big_context = RunConfig(
 )
 
 configs = {"base": base_config,
+           "qwen": qwen_config,
            "pdr": parent_document_retrieval_config,
            "max": max_config, 
            "max_no_ser_tab": max_no_ser_tab_config,
            "max_nst_o3m": max_nst_o3m_config, # This configuration returned the best results
            "max_st_o3m": max_st_o3m_config,
-           "ibm_llama70b": ibm_llama70b_config, # This one won't work, because ibm api was avaliable only while contest was running
-           "ibm_llama8b": ibm_llama8b_config, # This one won't work, because ibm api was avaliable only while contest was running
+           "ibm_llama70b": ibm_llama70b_config, # This one won't work, because ibm api was available only while contest was running
+           "ibm_llama8b": ibm_llama8b_config, # This one won't work, because ibm api was available only while contest was running
            "gemini_thinking": gemini_thinking_config}
 
 
@@ -448,11 +461,17 @@ configs = {"base": base_config,
 # Just uncomment the method you want to run
 # You can also change the run_config to try out different configurations
 if __name__ == "__main__":
-    root_path = here() / "data" / "test_set"
-    pipeline = Pipeline(root_path, run_config=max_nst_o3m_config)
-    
-    
-    # This method parses pdf reports into a jsons. It creates jsons in the debug/data_01_parsed_reports. These jsons used in the next steps. 
+    root_path = here() / "data" / "erc2_set"
+    pipeline = Pipeline(root_path, run_config=qwen_config)
+    # pipeline.parse_pdf_reports_sequential()
+    # pipeline.serialize_tables(max_workers=5)
+    # pipeline.merge_reports()
+    # pipeline.export_reports_to_markdown()
+    # pipeline.chunk_reports()
+    # pipeline.create_vector_dbs()
+    pipeline.process_questions()
+
+    # This method parses pdf reports into a jsons. It creates jsons in the debug/data_01_parsed_reports. These jsons used in the next steps.
     # It also stores raw output of docling in debug/data_01_parsed_reports_debug, these jsons contain a LOT of metadata, and not used anywhere
     # pipeline.parse_pdf_reports_sequential() 
     

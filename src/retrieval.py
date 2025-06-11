@@ -88,6 +88,7 @@ class VectorRetriever:
         load_dotenv()
         llm = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_API_BASE_URL"),
             timeout=None,
             max_retries=2
             )
@@ -98,6 +99,7 @@ class VectorRetriever:
         load_dotenv()
         llm = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_API_BASE_URL"),
             timeout=None,
             max_retries=2
             )
@@ -143,7 +145,7 @@ class VectorRetriever:
     @staticmethod
     def get_strings_cosine_similarity(str1, str2):
         llm = VectorRetriever.set_up_llm()
-        embeddings = llm.embeddings.create(input=[str1, str2], model="text-embedding-3-large")
+        embeddings = llm.embeddings.create(input=[str1, str2], model=os.getenv("EMBEDDING_MODEL"))
         embedding1 = embeddings.data[0].embedding
         embedding2 = embeddings.data[1].embedding
         similarity_score = np.dot(embedding1, embedding2) / (np.linalg.norm(embedding1) * np.linalg.norm(embedding2))
@@ -175,7 +177,8 @@ class VectorRetriever:
         
         embedding = self.llm.embeddings.create(
             input=query,
-            model="text-embedding-3-large"
+            model=os.getenv("EMBEDDING_MODEL"),
+            dimensions=1024,
         )
         embedding = embedding.data[0].embedding
         embedding_array = np.array(embedding, dtype=np.float32).reshape(1, -1)
