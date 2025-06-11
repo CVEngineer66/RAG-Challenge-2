@@ -33,6 +33,46 @@ class BaseOpenaiProcessor:
             )
         return llm
 
+    def _parse_structured_response(self, response_text, response_format, system_content):
+        """Parse and validate structured responses."""
+        try:
+            repaired_json = repair_json(response_text)
+            parsed_dict = json.loads(repaired_json)
+            validated_data = response_format.model_validate(parsed_dict)
+            return validated_data.model_dump()
+        except Exception as err:
+            print(f"Error parsing structured response: {err}")
+            print("Attempting to reparse the response...")
+            reparsed = self._reparse_response(response_text, system_content=system_content)
+            try:
+                repaired_json = repair_json(reparsed)
+                reparsed_dict = json.loads(repaired_json)
+                try:
+                    validated_data = response_format.model_validate(reparsed_dict)
+                    print("Reparsing successful!")
+                    return validated_data.model_dump()
+                except Exception:
+                    return reparsed_dict
+            except Exception as reparse_err:
+                print(f"Reparse failed with error: {reparse_err}")
+                print(f"Reparsed response: {reparsed}")
+                return response_text
+
+    def _reparse_response(self, response, system_content):
+        """Use the model to fix malformed JSON."""
+        user_prompt = prompts.AnswerSchemaFixPrompt.user_prompt.format(
+            system_prompt=system_content,
+            response=response
+        )
+
+        reparsed_response = self.send_message(
+            system_content=prompts.AnswerSchemaFixPrompt.system_prompt,
+            human_content=user_prompt,
+            is_structured=False
+        )
+
+        return reparsed_response
+
     def send_message(
         self,
         model=None,
@@ -63,11 +103,11 @@ class BaseOpenaiProcessor:
             content = completion.choices[0].message.content
 
         elif is_structured:
-            params["response_format"] = response_format
-            completion = self.llm.beta.chat.completions.parse(**params)
+            params["response_format"] = type_to_response_format_param(response_format)
+            completion = self.llm.chat.completions.create(**params)
 
-            response = completion.choices[0].message.parsed
-            content = response.dict()
+            response_text = completion.choices[0].message.content
+            content = self._parse_structured_response(response_text, response_format, system_content)
 
         self.response_data = {"model": completion.model, "input_tokens": completion.usage.prompt_tokens, "output_tokens": completion.usage.completion_tokens}
         print(self.response_data)
@@ -371,7 +411,7 @@ class BaseGeminiProcessor:
 class APIProcessor:
     def __init__(self, provider: Literal["openai", "ibm", "gemini", "qwen"] ="openai"):
         self.provider = provider.lower()
-        if self.provider == "openai" or "qwen":
+        if self.provider in ["openai", "qwen"]:
             self.processor = BaseOpenaiProcessor()
         elif self.provider == "ibm":
             self.processor = BaseIBMAPIProcessor()
